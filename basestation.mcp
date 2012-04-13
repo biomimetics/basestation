@@ -49,6 +49,8 @@ file_021=shared
 file_022=.
 file_023=shared
 file_024=shared
+file_025=.
+file_026=.
 [GENERATED_FILES]
 file_000=no
 file_001=no
@@ -75,6 +77,8 @@ file_021=no
 file_022=no
 file_023=no
 file_024=no
+file_025=no
+file_026=no
 [OTHER_FILES]
 file_000=no
 file_001=no
@@ -101,6 +105,8 @@ file_021=no
 file_022=no
 file_023=no
 file_024=no
+file_025=no
+file_026=no
 [FILE_INFO]
 file_000=..\shared\radio.c
 file_001=..\shared\queue.c
@@ -111,10 +117,10 @@ file_005=..\shared\buffer.c
 file_006=src\main.c
 file_007=src\init.c
 file_008=..\shared\packet_queue.c
-file_009=..\shared\lcd.c
-file_010=..\shared\at86rf.c
-file_011=..\shared\init_default.c
-file_012=src\traps.c
+file_009=..\shared\at86rf.c
+file_010=..\shared\init_default.c
+file_011=src\traps.c
+file_012=src\xbee_handler.c
 file_013=..\shared\utils.h
 file_014=..\shared\at86rf231.h
 file_015=..\shared\boards.h
@@ -126,14 +132,16 @@ file_020=..\shared\queue.h
 file_021=..\shared\radio.h
 file_022=src\init.h
 file_023=..\shared\packet_queue.h
-file_024=..\shared\lcd.h
+file_024=C:\Users\pullin\Desktop\SVN code\trunk\shared\at86rf.h
+file_025=src\xbee_constants.h
+file_026=src\xbee_handler.h
 [SUITE_INFO]
 suite_guid={479DDE59-4D56-455E-855E-FFF59A3DB57E}
 suite_state=
 [TOOL_SETTINGS]
 TS{7D9C6ECE-785D-44CB-BA22-17BF2E119622}=-g
 TS{25AC22BD-2378-4FDB-BFB6-7345A15512D3}=-g -Wall -D__BASESTATION
-TS{7DAC9A1D-4C45-45D6-B25A-D117C74E8F5A}=--heap=2048 -Map="$(BINDIR_)$(TARGETBASE).map" --report-mem -o"$(BINDIR_)$(TARGETBASE).$(TARGETSUFFIX)"
+TS{7DAC9A1D-4C45-45D6-B25A-D117C74E8F5A}=--heap=8192 --stack=256 -Map="$(BINDIR_)$(TARGETBASE).map" --report-mem -o"$(BINDIR_)$(TARGETBASE).$(TARGETSUFFIX)"
 TS{509E5861-1E2A-483B-8B6B-CA8DB7F2DD78}=
 [INSTRUMENTED_TRACE]
 enable=0
