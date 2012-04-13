@@ -1,0 +1,70 @@
+#!/usr/bin/env python
+"""
+cmd module
+authors: stanbaek
+Created on 2010-07-07:
+
+"""
+
+# CMD values of 0x00 - 0x7F(127) are defined here
+# Add CMD definitions 
+# for bootloader (0x00 - 0x1F)
+CMD_NACK = 0x00        # START_APPLICATION = 0
+CMD_ACK = 0x01
+CMD_READ_PM = 0x02
+CMD_WRITE_PM = 0x03
+CMD_READ_EE = 0x04
+CMD_WRITE_EE = 0x05
+CMD_READ_CM = 0x06
+CMD_WRITE_CM = 0x07
+CMD_RESET = 0x08
+CMD_READ_ID = 0x09
+CMD_READ_GOTO = 0x10
+
+SET_THRUST = 0x11
+SET_STEER = 0x12
+ECHO = 0x1F      # send back the received packet
+
+# for IMU (0x20 - 0x3F)
+GET_IMU_DATA = 0x20
+GET_IMU_LOOP = 0x21
+RUN_IMU_LOOP = 0x2A
+CMD_TRANSFER_COMPLETE = 0x2B
+CMD_TEST2 = 0x2C
+CMD_DATA_PACKET = 0x2D
+POSTRUN_IMU_LOOP = 0x2E
+PRERUN_IMU_LOOP = 0x2C
+START_IMU_SAVE = 0x22
+STOP_IMU_SAVE = 0x23
+TX_SAVED_IMU_DATA = 0x24
+ERASE_MEM_SECTOR = 0x25
+
+
+BASE_ECHO = 0x3f
+
+
+# CMD values of 0x80(128) - 0xEF(239) are available for user applications.
+
+# CMD values of 0xF0(240) - 0xFF(255) are reserved for future use
+
+"""
+CMD_DCUPDATE = 101
+CMD_DCSWEEP = 106
+CMD_DIRDCUPDATE = 110
+CMD_STEERUPDATE = 102
+CMD_TURNLEFT = chr(103)
+CMD_TURNRIGHT = chr(104)
+CMD_NOTURN = chr(105)
+CMD_DIRECTION = 107
+CMD_DIRFORWARD = chr(108)
+CMD_DIRBACKWARD = chr(109)
+CMD_WIIMOTE = 121
+CMD_WIIREAD = 122
+CMD_WIICONTREAD = 123
+CMD_WIIBLOBREAD = 124
+CMD_AUTOPILOT = 131
+CMD_SETGAINS = 141
+"""
+
+
+

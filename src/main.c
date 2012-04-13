@@ -29,9 +29,9 @@
  *
  * Firmware for the Biomimetic Millisystems Lab 802.15.4 USB basestation. 
  *
- * by Aaron M. Hoover 
+ * by Aaron M. Hoover & Kevin Peterson
  *
- * v.00beta
+ * v2.00
  *
  * Revisions:
  *  <AUTHOR     DATE    COMMENT>
@@ -40,8 +40,7 @@
  * 
  * At the moment the basestation uses a very stripped down MAC layer
  * implementation Inter-PAN communication is not possible and all 
- * addressing is 16-bit only. Communication is also limited to one static
- * channel.
+ * addressing is 16-bit only. 
  *
  * Usage:
  *  <SAMPLE USAGE>
@@ -55,45 +54,36 @@
 #include "uart.h"
 #include "mac_packet.h"
 #include "radio.h"
+#include "at86rf.h"
 #include "payload.h"
 #include <stdio.h>
-#include "lcd.h"
+#include "xbee_constants.h"
+#include "xbee_handler.h"
+//#include "lcd.h"
 
 // _FOSCSEL(FNOSC_PRIPLL);
 // _FOSC(FCKSM_CSDCMD & OSCIOFNC_OFF & POSCMD_XT);
 // _FWDT(FWDTEN_OFF);
 
 void init(void);
-void uartSendPacket(void);
-
-#define RX_START            0x7E
-#define UART_RX_WAITING     0x00
-#define UART_RX_ON          0x01
-
-#define RX_START_POS        0 
-#define LEN_HB_POS          1
-#define LEN_LB_POS          2
-#define API_ID_POS          3
-#define FRAME_ID_POS        4
-#define DEST_ADDR_HB_POS    5
-#define DEST_ADDR_LB_POS    6
-#define OPTIONS_POS         7
-
-#define RX_FRAME_OFFSET     8
-#define RX_DATA_OFFSET      3 //Offset for accounting for RX_START and LEN_HB/LB bytes
 
 // Default source address and pan id, eventually will get them from program memory
 // For now, you need to replace these values with the appropriate ones for your
-// project.
-//<<<<<<< .mine
-#define SRC_ADDR			0x2011
-#define SRC_PAN_ID			0x2020
-#define MY_CHAN             0x17
-//=======
-//#define SRC_ADDR	    0x1020
-//#define SRC_PAN_ID          0x1000
-//#define MY_CHAN             0x15
-//>>>>>>> .r931
+// project.  These can be changed from python now.
+// RSF working address 9/2011
+//#define SRC_ADDR	    0x2011
+//#define SRC_PAN_ID	    0x2060
+//#define MY_CHAN             0x13
+
+//Motile Release
+#define SRC_ADDR	    0x3001
+#define SRC_PAN_ID	    0x3000
+#define MY_CHAN             0x0e
+
+//#define SRC_ADDR	    0x2000
+//#define SRC_PAN_ID	    0x2000
+//#define MY_CHAN             0x16
+
 
 #define LED_RED             LED_0
 #define LED_YLW1            LED_1
@@ -106,7 +96,7 @@ int main(void) {
     while(1) {
         if (!radioIsRxQueueEmpty())
         {
-            uartSendPacket();
+            xbeeHandleRx();
             LED_BLU = ~LED_BLU;
         }
         if (!radioIsTxQueueEmpty())
@@ -144,21 +134,25 @@ void init(void)
     SetupInterrupts();
     EnableIntU1TX;
     EnableIntU1RX;
-    radioInit(src_addr, src_pan_id, 100, 100);
+    radioInit(src_addr, src_pan_id, 150, 150);
     radioSetChannel(MY_CHAN); //Set to my channel
+
+    //Set this if the electronics for Ant diversity are installed
+    atSetAntDiversity(1);
 }
 
+//read data from the UART, and call the proper function based on the Xbee code
 void __attribute__((__interrupt__, no_auto_psv)) _U1RXInterrupt(void)
 {
     static unsigned char uart_rx_state = UART_RX_WAITING;
     static unsigned char uart_rx_cnt = 0;
-    static Payload rx_pld;
-    static WordVal rx_pld_len;
-    static byte    rx_checksum;
-    static WordVal dst_addr;
+    static Payload uart_pld;
+    static WordVal uart_pld_len;
+    static byte    uart_checksum;
+    static unsigned char packet_type = 0;
+    static unsigned char test;
     
     unsigned char c;
-	MacPacket tx_packet;
 
     if(U1STAbits.OERR)
     {
@@ -169,8 +163,9 @@ void __attribute__((__interrupt__, no_auto_psv)) _U1RXInterrupt(void)
     if (uart_rx_state == UART_RX_WAITING && c == RX_START)
     {
         uart_rx_state = UART_RX_ON;
+        packet_type = 0;
         uart_rx_cnt = 1;
-        rx_checksum = 0x00;
+        uart_checksum = 0x00;
     }else if (uart_rx_state == UART_RX_ON)
     {
         switch (uart_rx_cnt)
@@ -179,68 +174,60 @@ void __attribute__((__interrupt__, no_auto_psv)) _U1RXInterrupt(void)
             //fact that packets can't be longer than 128 bytes. The high byte
             //is extracted, but never used here.
             case LEN_HB_POS:
-                rx_pld_len.byte.HB = c;
+                uart_pld_len.byte.HB = c;
                 uart_rx_cnt++;
                 break;
             case LEN_LB_POS:
-                rx_pld_len.byte.LB = c;
-                rx_pld = payCreateEmpty(rx_pld_len.byte.LB-(RX_FRAME_OFFSET-RX_DATA_OFFSET)-PAYLOAD_HEADER_LENGTH);
+                uart_pld_len.byte.LB = c;
+                //We create a payload structure to store the data incoming from the uart
+                uart_pld = payCreateEmpty(uart_pld_len.byte.LB-PAYLOAD_HEADER_LENGTH);
+                test = uart_pld_len.byte.LB;
                 uart_rx_cnt++;
                 break;
             case API_ID_POS:
                 //Currently, we're only supporting the 16-bit TX/RX API, 
-                //but other possible IDs are AT (configuration commands)
-                //and the 64 bit TX/RX modes.
-                rx_checksum += c;
-                uart_rx_cnt++;
-                break;
-            case FRAME_ID_POS:
-                //We may want to do something with the frame id at some point.
-                rx_checksum += c;
-                uart_rx_cnt++;
-                break;
-            case DEST_ADDR_HB_POS:
-                rx_checksum += c;
-                dst_addr.byte.HB = c;
-                uart_rx_cnt++;
-                break;
-            case DEST_ADDR_LB_POS:
-                rx_checksum += c;
-                dst_addr.byte.LB = c;
-                uart_rx_cnt++;
-                break;
-            case OPTIONS_POS:
-                //Options byte currently unused. XBee docs set use 0x01 to
-                //disable ACKS and 0x04 to send with broadcast PAN ID
-                rx_checksum += c;
+                //and the AT command mode
+                packet_type = c;
+                uart_checksum += c;
                 uart_rx_cnt++;
                 break;
             default:
-                if (uart_rx_cnt == (rx_pld_len.byte.LB + RX_DATA_OFFSET))
+            if (uart_rx_cnt == (uart_pld_len.byte.LB + RX_DATA_OFFSET-1))
+            {
+                if (uart_checksum + c == 0xFF) //We have a legit packet
                 {
-                    if (rx_checksum + c == 0xFF) //We have a legit packet
+                    //Check for type of packet and call relevant function
+                    switch (packet_type)
                     {
-						//Place packet in radio queue for sending
-						tx_packet = macCreatePacket();
-						tx_packet->payload = rx_pld;
-						tx_packet->payload_length = payGetPayloadLength(rx_pld);//rx_pld_len.byte.LB - (RX_FRAME_OFFSET - RX_DATA_OFFSET);
-						//tx_packet->dest_pan_id = src_pan_id; //Already set when macCreatePacket is called.
-						tx_packet->dest_addr = dst_addr;
-						radioEnqueueTxPacket(tx_packet);
-                    }else //Start over
-                    {
-                        payDelete(rx_pld);
-                    }
+                        case AT_COMMAND_MODE:
+                            xbeeHandleAt(uart_pld);
+                            break;
 
-                    uart_rx_state = UART_RX_WAITING;
-                }else
+                        case TX_16BIT:
+                            xbeeHandleTx(uart_pld);
+                            break;
+
+                        default:
+                            //do nothing, but probably should send an error
+                            break;
+                    }
+                    payDelete(uart_pld);
+
+                }else //Start over
                 {
-                    rx_pld->pld_data[uart_rx_cnt - RX_FRAME_OFFSET] = c;
-                    rx_checksum += c;
-                    uart_rx_cnt++;
+                    payDelete(uart_pld);
                 }
-                break;
+
+                uart_rx_state = UART_RX_WAITING;
+            }else
+            {
+                uart_pld->pld_data[uart_rx_cnt-RX_DATA_OFFSET] = c;
+                uart_checksum += c;
+                uart_rx_cnt++;
+            }
+            break;
         }
+            
     }
     _U1RXIF = 0;
 }
@@ -250,74 +237,5 @@ void __attribute__((interrupt, no_auto_psv)) _U1TXInterrupt(void)
     _U1TXIF = 0;
 }
 
-void uartSendPacket()
-{
-    int i;
-    unsigned char checksum=0;
-    unsigned char rssi;
-    MacPacket rx_packet;
 
-    CRITICAL_SECTION_START
-        rx_packet = radioDequeueRxPacket();
-        
-        // for(i = 0; i < payGetPayloadLength(rx_pld); i++)
-        //         {
-        //             LED_1 = ON;
-        //             delay_ms(300);
-        //             LED_1 = OFF;
-        //             delay_ms(300);
-        //         }
-        
-		//Start Byte
-		while(BusyUART1());
-        WriteUART1(RX_START);
-		
-		//Length High Byte
-		while(BusyUART1());
-		WriteUART1(0x00);
-		
-		//Length Low Byte
-		while(BusyUART1());
-        WriteUART1(payGetPayloadLength(rx_packet->payload)+5);
-        
-		//API Identifier - Currently only support the RX type
-		checksum += 0x81;
-		while(BusyUART1());
-		WriteUART1(0x81);
-		
-		//Source Address High byte
-        checksum += rx_packet->src_addr.byte.HB;
-		while(BusyUART1());
-		WriteUART1(rx_packet->src_addr.byte.HB);
-		
-		//Source Address Low Byte
-		checksum += rx_packet->src_addr.byte.LB;
-		while(BusyUART1());
-		WriteUART1(rx_packet->src_addr.byte.LB);
-		
-        rssi = phyReadRSSI();
-		checksum += rssi;
-		while(BusyUART1());
-	    WriteUART1(rssi);
-		
-		//'Options' Not currently implemented
-		checksum += 0x00;
-		while(BusyUART1());
-		WriteUART1(0x00);
-		
-		//Send Payload data
-        for(i = 0; i < payGetPayloadLength(rx_packet->payload); i++)
-        {
-            checksum += rx_packet->payload->pld_data[i];
-            while(BusyUART1());
-            WriteUART1(rx_packet->payload->pld_data[i]);
-        }
-
-		//Send Checksum Data
-        while(BusyUART1());
-        WriteUART1(0xFF - checksum);
-        payDelete(rx_packet->payload);
-        macDeletePacket(rx_packet);
-    CRITICAL_SECTION_END
-}
 
