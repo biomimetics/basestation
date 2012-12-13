@@ -11,5 +11,6 @@
 build
 dist
 private
+*.mk
 *.properties
 *.bash
