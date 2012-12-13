@@ -98,7 +98,7 @@ void xbeeHandleAt(Payload rx_pld)
 {
     unsigned char frame;
     unsigned char length;
-    unsigned char test;
+    //unsigned char test;
 
     //This should really be some sort of dynamic queue to be generalized
     unsigned char bytes[10];
